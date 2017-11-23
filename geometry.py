@@ -6,7 +6,7 @@ __version__ = "0.0.1"
 # Imports
 
 # Module imports
-import pandas as pd
+#import pandas as pd
 import numpy as np
 #import pyshp as ps
 from numpy.linalg import norm
