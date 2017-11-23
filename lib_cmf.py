@@ -42,8 +42,6 @@ class CMFModel:
             for f in files:
                 if f.startswith('weather'):
                     weather_path = folder + '/' + f
-                else:
-                    pass
 
             weather_tree = ET.tostring(ET.parse(weather_path).getroot())
             weather = xmltodict.parse(weather_tree)
@@ -58,13 +56,6 @@ class CMFModel:
                 else:
                     lst1 = lst0
 
-                """
-                try:
-                    lst1 = [float(i) for i in lst0]
-                except TypeError:
-                    lst1 = lst0
-                """
-
                 weather_dict[w_key] = lst1
 
             return weather_dict
@@ -76,7 +67,7 @@ class CMFModel:
                 if f.startswith('trees'):
                     tree_path = folder + '/' + f
                 else:
-                    pass
+                    return None
 
             tree_tree = ET.tostring(ET.parse(tree_path).getroot())
             trees = xmltodict.parse(tree_tree)
@@ -96,8 +87,6 @@ class CMFModel:
             for f in files:
                 if f.startswith('ground'):
                     ground_path = folder + '/' + f
-                else:
-                    pass
 
             ground_tree = ET.tostring(ET.parse(ground_path).getroot())
             grounds = xmltodict.parse(ground_tree)
@@ -116,8 +105,6 @@ class CMFModel:
             for f in files:
                 if f.endswith('.obj'):
                     mesh_path = folder + '/' + f
-                else:
-                    pass
 
             return mesh_path
 
@@ -127,8 +114,6 @@ class CMFModel:
             for f in files:
                 if f.startswith('outputs'):
                     output_path = folder + '/' + f
-                else:
-                    pass
 
             output_tree = ET.tostring(ET.parse(output_path).getroot())
             outputs = xmltodict.parse(output_tree)
@@ -145,8 +130,6 @@ class CMFModel:
             for f in files:
                 if f.startswith('solver'):
                     solver_path = folder + '/' + f
-                else:
-                    pass
 
             solver_tree = ET.tostring(ET.parse(solver_path).getroot())
             solver = xmltodict.parse(solver_tree)
@@ -698,10 +681,11 @@ class CMFModel:
                                         self.ground_dict[str(key)]['surface_properties'],
                                         self.ground_dict[str(key)]['face_indices'])
 
-        for key in self.trees_dict.keys():
-            self.add_tree(project,
-                          self.trees_dict[str(key)]['face_index'],
-                          self.trees_dict[str(key)]['property'])
+        if self.trees_dict:
+            for key in self.trees_dict.keys():
+                self.add_tree(project,
+                              self.trees_dict[str(key)]['face_index'],
+                              self.trees_dict[str(key)]['property'])
 
         # Create the weather
         self.create_weather(project)
