@@ -12,7 +12,7 @@ import pymesh as pm
 import numpy as np
 
 # Livestock imports
-import geometry as ls_geo
+import livestock_linux.geometry as ls_geo
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Livestock Rain and Flow Library
