@@ -524,13 +524,15 @@ class CMFModel:
                     self.results[cell_name][out_key].append(volume)
 
                 if out_key == 'surface_water_flux':
-                    water = cmf_project.cells[cell_index].get_surfacewater()
+                    water = cmf_project.cells[cell_index].get_surfacewater().get_3d_flux(time)
 
+                    """
                     flux_and_node = []
                     for flux, node in water.fluxes(time):
                         flux_and_node.append((flux, node))
+                    """
 
-                    self.results[cell_name][out_key].append(flux_and_node)
+                    self.results[cell_name][out_key].append(water)
 
                 if out_key == 'heat_flux':
                     self.results[cell_name][out_key].append(cmf_project.cells[cell_index].heat_flux(time))
@@ -555,13 +557,15 @@ class CMFModel:
                             cmf_project.cells[cell_index].layers[layer_index].theta)
 
                     if out_key == 'volumetric_flux':
-                        layer = cmf_project.cells[cell_index].layers[layer_index]
+                        layer = cmf_project.cells[cell_index].layers[layer_index].get_3d_flux(time)
 
+                        """
                         flux_and_node = []
                         for flux, node in layer.fluxes(time):
                             flux_and_node.append((flux, node))
+                        """
 
-                        self.results[cell_name][layer_name][out_key].append(flux_and_node)
+                        self.results[cell_name][layer_name][out_key].append(layer)
 
                     if out_key == 'volume':
                         self.results[cell_name][layer_name][out_key].append(
