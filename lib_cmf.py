@@ -29,6 +29,7 @@ class CMFModel:
         self.weather_dict = {}
         self.trees_dict = {}
         self.ground_dict = {}
+        self.boundary_dict = {}
         self.solver_settings = None
         self.outputs = None
         self.solved = False
@@ -140,6 +141,30 @@ class CMFModel:
 
             return solver_dict
 
+        def load_boundary(folder, files):
+            boundary_path = None
+
+            for f in files:
+                if f.startswith('boundary'):
+                    boundary_path = folder + '/' + f
+
+            boundary_tree = ET.tostring(ET.parse(boundary_path).getroot())
+            boundaries = xmltodict.parse(boundary_tree)
+            boundary_dict = {}
+
+            for bc_key in boundaries['boundary_conditions'].keys():
+                boundary_dict[str(bc_key)] = {}
+
+                for bc in boundaries['boundary_conditions'][bc_key]:
+                    if bc == 'flux':
+                        fluxes = list(float(flux)
+                                      for flux in boundaries['boundary_conditions'][bc_key][bc].split(','))
+                        boundary_dict[bc_key][bc] = fluxes
+                    else:
+                        boundary_dict[bc_key][bc] = boundaries['boundary_conditions'][bc_key][bc]
+
+            return boundary_dict
+
         cmf_files = os.listdir(self.folder)
 
         # Load files and assign data to variables
@@ -149,7 +174,7 @@ class CMFModel:
         self.mesh_path = load_mesh(self.folder, cmf_files)
         self.outputs = load_outputs(self.folder, cmf_files)
         self.solver_settings = load_solver_info(self.folder, cmf_files)
-
+        self.boundary_dict = load_boundary(self.folder, cmf_files)
         return True
 
     def mesh_to_cells(self, cmf_project, mesh_path):
@@ -462,6 +487,65 @@ class CMFModel:
             cell_rain, cell_meteo = create_weather_station(cmf_project, cell_index, cell_weather_dict, project_location)
             connect_weather_to_cells(cell, cell_rain, cell_meteo)
 
+    def create_boundary_conditions(self, cmf_project):
+
+        # Helper functions
+        def set_inlet(boundary_condition_, cmf_project_):
+
+            # Get the correct cell and layer
+            if int(boundary_condition_['layer']) == 0:
+                cell_layer = cmf_project_.cells[int(boundary_condition_['cell'])].surfacewater
+            else:
+                cell_layer = cmf_project_.cells[
+                    int(boundary_condition_['cell'])].layers[
+                    int(boundary_condition_['layer'])]
+
+            # Create inlet
+            inlet = cmf.NeumannBoundary.create(cell_layer)
+
+            # if flux is a list then convert to time series
+            if len(boundary_condition_['flux']) > 1:
+                inlet_flux = np.array(
+                    list(float(flux)
+                         for flux in boundary_condition_['flux']))
+                print(inlet_flux)
+                inlet.set_flux(cmf.timeseries.from_array(begin=datetime(2017, 1, 1),
+                                                         step=timedelta(hours=1),
+                                                         data=inlet_flux))
+                print('inlet flux:', str(inlet.flux))
+            else:
+                inlet.flux = boundary_condition_['flux'][0]
+                print('inlet flux:', str(inlet.flux))
+
+        def set_outlet(boundary_condition_, index, cmf_project_):
+            x, y, z = boundary_condition_['location'].split(',')
+            outlet = cmf_project_.NewOutlet('outlet_' + str(index), float(x), float(y), float(z))
+            cell = cmf_project_.cells[int(boundary_condition_['cell'])]
+
+            if boundary_condition_['layer'] == 'all':
+                for l in cell.layers:
+                    # create a Darcy connection with 10m flow width between each soil layer and the outlet
+                    cmf.Darcy(l, outlet, FlowWidth=float(boundary_condition_['flow_width']))
+                cmf.KinematicSurfaceRunoff(cell.surfacewater, outlet, float(boundary_condition_['flow_width']))
+            elif boundary_condition_['layer'] == 0:
+                cmf.KinematicSurfaceRunoff(cell.surfacewater, outlet, float(boundary_condition_['flow_width']))
+            else:
+                layer = cell.layers[int(boundary_condition_['layer'])]
+                cmf.Darcy(layer, outlet, FlowWidth=float(boundary_condition_['flow_width']))
+
+        def set_boundary_condition(boundary_condition, bc_index, cmf_project):
+            if boundary_condition['type'] == 'inlet':
+                set_inlet(boundary_condition, cmf_project)
+            elif boundary_condition['type'] == 'outlet':
+                set_outlet(boundary_condition, bc_index, cmf_project)
+            else:
+                raise ValueError('Boundary type should be either inlet or outlet. Given value was: '
+                                 + str(boundary_condition['type']))
+
+        # Loop through the boundary conditions and assign them
+        for index, boundary_condition in enumerate(self.boundary_dict.keys()):
+            set_boundary_condition(self.boundary_dict[boundary_condition], index, cmf_project)
+
     def config_outputs(self, cmf_project):
         """Function to set up result gathering dictionary"""
 
@@ -575,9 +659,8 @@ class CMFModel:
                         self.results[cell_name][layer_name][out_key].append(
                             cmf_project.cells[cell_index].layers[layer_index].wetness)
 
-                    else:
-                        # print('Unknown result to collect:', out_key)
-                        pass
+                    #else:
+                    #    raise ValueError('Unknown result to collect. Result to collect was: ' + str(out_key))
 
     def print_solver_time(self, solver_time, start_time, last_time, step):
 
@@ -693,6 +776,9 @@ class CMFModel:
 
         # Create the weather
         self.create_weather(project)
+
+        # Create boundary conditions
+        self.create_boundary_conditions(project)
 
         # Run solver
         self.solve(project, self.solver_settings['tolerance'])
