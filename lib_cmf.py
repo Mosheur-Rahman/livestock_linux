@@ -285,7 +285,7 @@ class CMFModel:
 
         return True
 
-    def set_surface_properties(self, cell, property_dict):
+    def set_surface_properties(self, cell: cmf.Cell, property_dict: dict):
         cell.vegetation.Height = float(property_dict['height'])
         cell.vegetation.LAI = float(property_dict['lai'])
         cell.vegetation.albedo = float(property_dict['albedo'])
@@ -296,6 +296,9 @@ class CMFModel:
         cell.vegetation.RootDepth = float(property_dict['root_depth'])
         cell.vegetation.fraction_at_rootdepth = float(property_dict['root_fraction'])
         cell.vegetation.LeafWidth = float(property_dict['leaf_width'])
+
+        if property_dict['manning']:
+            cell.surfacewater.set_nManning(float(property_dict['manning']))
 
     def add_surface_properties(self, cmf_project, property_dict, cell_indices):
 
@@ -392,11 +395,11 @@ class CMFModel:
         """Creates weather for the project"""
 
         # Helper functions
-        def create_time_series(timeStep=1.0):
+        def create_time_series(time_step=1.0):
 
             # Start date is the 1st of January 2017 at 00:00
             start = cmf.Time(1, 1, 2017, 0, 0)
-            step = cmf.h * timeStep
+            step = cmf.h * time_step
 
             # Create time series
             return cmf.timeseries(begin=start, step=step)
@@ -497,29 +500,29 @@ class CMFModel:
                 cell_layer = cmf_project_.cells[int(boundary_condition_['cell'])].surfacewater
             else:
                 cell_layer = cmf_project_.cells[
-                    int(boundary_condition_['cell'])].layers[
-                    int(boundary_condition_['layer'])]
+                                                int(boundary_condition_['cell'])].layers[
+                                                int(boundary_condition_['layer'])]
 
             # Create inlet
             inlet = cmf.NeumannBoundary.create(cell_layer)
 
             # if flux is a list then convert to time series
             if len(boundary_condition_['flux']) > 1:
-                inlet_flux = np.array(
-                    list(float(flux)
-                         for flux in boundary_condition_['flux']))
-                print(inlet_flux)
+                inlet_flux = np.array(list(float(flux)
+                                           for flux in boundary_condition_['flux']))
+
                 inlet.set_flux(cmf.timeseries.from_array(begin=datetime(2017, 1, 1),
                                                          step=timedelta(hours=1),
                                                          data=inlet_flux))
-                print('inlet flux:', str(inlet.flux))
+                print('inlet flux:', str(inlet.get_flux()))
+                print('inlet:', str(inlet))
             else:
                 inlet.flux = boundary_condition_['flux'][0]
                 print('inlet flux:', str(inlet.flux))
 
-        def set_outlet(boundary_condition_, index, cmf_project_):
+        def set_outlet(boundary_condition_, index_, cmf_project_):
             x, y, z = boundary_condition_['location'].split(',')
-            outlet = cmf_project_.NewOutlet('outlet_' + str(index), float(x), float(y), float(z))
+            outlet = cmf_project_.NewOutlet('outlet_' + str(index_), float(x), float(y), float(z))
             cell = cmf_project_.cells[int(boundary_condition_['cell'])]
 
             if boundary_condition_['layer'] == 'all':
@@ -533,14 +536,14 @@ class CMFModel:
                 layer = cell.layers[int(boundary_condition_['layer'])]
                 cmf.Darcy(layer, outlet, FlowWidth=float(boundary_condition_['flow_width']))
 
-        def set_boundary_condition(boundary_condition, bc_index, cmf_project):
-            if boundary_condition['type'] == 'inlet':
-                set_inlet(boundary_condition, cmf_project)
-            elif boundary_condition['type'] == 'outlet':
-                set_outlet(boundary_condition, bc_index, cmf_project)
+        def set_boundary_condition(boundary_condition_, bc_index, cmf_project_):
+            if boundary_condition_['type'] == 'inlet':
+                set_inlet(boundary_condition_, cmf_project_)
+            elif boundary_condition_['type'] == 'outlet':
+                set_outlet(boundary_condition_, bc_index, cmf_project_)
             else:
                 raise ValueError('Boundary type should be either inlet or outlet. Given value was: '
-                                 + str(boundary_condition['type']))
+                                 + str(boundary_condition_['type']))
 
         # Loop through the boundary conditions and assign them
         for index, boundary_condition in enumerate(self.boundary_dict.keys()):
@@ -659,7 +662,7 @@ class CMFModel:
                         self.results[cell_name][layer_name][out_key].append(
                             cmf_project.cells[cell_index].layers[layer_index].wetness)
 
-                    #else:
+                    # else:
                     #    raise ValueError('Unknown result to collect. Result to collect was: ' + str(out_key))
 
     def print_solver_time(self, solver_time, start_time, last_time, step):
