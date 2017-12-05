@@ -67,20 +67,22 @@ class CMFModel:
             for f in files:
                 if f.startswith('trees'):
                     tree_path = folder + '/' + f
-                else:
-                    return None
 
-            tree_tree = ET.tostring(ET.parse(tree_path).getroot())
-            trees = xmltodict.parse(tree_tree)
-            tree_dict = {}
+            if not tree_path:
+                return None
 
-            for tree_key in trees['tree'].keys():
-                tree_dict[str(tree_key)] = {}
+            else:
+                tree_tree = ET.tostring(ET.parse(tree_path).getroot())
+                trees = xmltodict.parse(tree_tree)
+                tree_dict = {}
 
-                for t in trees['tree'][str(tree_key)].keys():
-                    tree_dict[str(tree_key)][str(t)] = eval(trees['tree'][str(tree_key)][str(t)])
+                for tree_key in trees['tree'].keys():
+                    tree_dict[str(tree_key)] = {}
 
-            return tree_dict
+                    for t in trees['tree'][str(tree_key)].keys():
+                        tree_dict[str(tree_key)][str(t)] = eval(trees['tree'][str(tree_key)][str(t)])
+
+                return tree_dict
 
         def load_ground(folder, files):
             ground_path = None
@@ -148,22 +150,26 @@ class CMFModel:
                 if f.startswith('boundary'):
                     boundary_path = folder + '/' + f
 
-            boundary_tree = ET.tostring(ET.parse(boundary_path).getroot())
-            boundaries = xmltodict.parse(boundary_tree)
-            boundary_dict = {}
+            if not boundary_path:
+                return None
 
-            for bc_key in boundaries['boundary_conditions'].keys():
-                boundary_dict[str(bc_key)] = {}
+            else:
+                boundary_tree = ET.tostring(ET.parse(boundary_path).getroot())
+                boundaries = xmltodict.parse(boundary_tree)
+                boundary_dict = {}
 
-                for bc in boundaries['boundary_conditions'][bc_key]:
-                    if bc == 'flux':
-                        fluxes = list(float(flux)
-                                      for flux in boundaries['boundary_conditions'][bc_key][bc].split(','))
-                        boundary_dict[bc_key][bc] = fluxes
-                    else:
-                        boundary_dict[bc_key][bc] = boundaries['boundary_conditions'][bc_key][bc]
+                for bc_key in boundaries['boundary_conditions'].keys():
+                    boundary_dict[str(bc_key)] = {}
 
-            return boundary_dict
+                    for bc in boundaries['boundary_conditions'][bc_key]:
+                        if bc == 'flux':
+                            fluxes = list(float(flux)
+                                          for flux in boundaries['boundary_conditions'][bc_key][bc].split(','))
+                            boundary_dict[bc_key][bc] = fluxes
+                        else:
+                            boundary_dict[bc_key][bc] = boundaries['boundary_conditions'][bc_key][bc]
+
+                return boundary_dict
 
         cmf_files = os.listdir(self.folder)
 
@@ -781,7 +787,8 @@ class CMFModel:
         self.create_weather(project)
 
         # Create boundary conditions
-        self.create_boundary_conditions(project)
+        if self.boundary_dict:
+            self.create_boundary_conditions(project)
 
         # Run solver
         self.solve(project, self.solver_settings['tolerance'])
