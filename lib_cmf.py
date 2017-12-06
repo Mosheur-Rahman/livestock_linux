@@ -306,6 +306,9 @@ class CMFModel:
         if property_dict['manning']:
             cell.surfacewater.set_nManning(float(property_dict['manning']))
 
+        if property_dict['puddle_depth']:
+            cell.surfacewater.puddledepth = property_dict['puddle_depth']
+
     def add_surface_properties(self, cmf_project, property_dict, cell_indices):
 
         for c_i in cell_indices:
@@ -717,7 +720,7 @@ class CMFModel:
         # Run solver and save results at each time step
         for t in solver.run(solver.t,
                             solver.t + timedelta(hours=self.solver_settings['analysis_length']),
-                            timedelta(hours=1)):
+                            timedelta(hours=float(self.solver_settings['time_step']))):
 
             self.gather_results(cmf_project, t)
             last = self.print_solver_time(t, start_time, last, step)
