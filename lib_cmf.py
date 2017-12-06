@@ -295,71 +295,75 @@ class CMFModel:
 
         return True
 
-    def set_surface_properties(self, cell: cmf.Cell, property_dict: dict):
-        cell.vegetation.Height = float(property_dict['height'])
-        cell.vegetation.LAI = float(property_dict['lai'])
-        cell.vegetation.albedo = float(property_dict['albedo'])
-        cell.vegetation.CanopyClosure = float(property_dict['canopy_closure'])
-        cell.vegetation.CanopyParExtinction = float(property_dict['canopy_par'])
-        cell.vegetation.CanopyCapacityPerLAI = float(property_dict['canopy_capacity'])
-        cell.vegetation.StomatalResistance = float(property_dict['stomatal_res'])
-        cell.vegetation.RootDepth = float(property_dict['root_depth'])
-        cell.vegetation.fraction_at_rootdepth = float(property_dict['root_fraction'])
-        cell.vegetation.LeafWidth = float(property_dict['leaf_width'])
+    def configure_cells(self, cmf_project: cmf.project, cell_properties_dict: dict):
+        """Configure the cells"""
 
-        if property_dict['manning']:
-            cell.surfacewater.set_nManning(float(property_dict['manning']))
-
-        if property_dict['puddle_depth']:
-            cell.surfacewater.puddledepth = property_dict['puddle_depth']
-
-    def add_surface_properties(self, cmf_project, property_dict, cell_indices):
-
-        for c_i in cell_indices:
-            cell = cmf_project.cells[int(c_i)]
-
-            self.set_surface_properties(cell, property_dict)
-
-            if property_dict['et_method'] == 'penman_monteith':
-                # Install Penman & Monteith method to calculate EvapoTranspiration_potential
-                cell.install_connection(cmf.PenmanMonteithET)
-
-            elif property_dict['et_method'] == 'shuttleworth_wallace':
-                # Install Shuttleworth-Wallace method to calculate evapotranspiration
-                cell.install_connection(cmf.ShuttleworthWallace)
-
-        return True
-
-    def retention_curve(self, r_curve):
-        """
-        Converts a dict of retention curve parameters into a CMF van Genuchten-Mualem retention curve.
-        :param r_curve: dict
-        :return: CMF retention curve
-        """
-
-        r = cmf.VanGenuchtenMualem(r_curve['K_sat'], r_curve['phi'], r_curve['alpha'], r_curve['n'], r_curve['m'])
-        r.l = r_curve['l']
-
-        return r
-
-    def add_layers_to_cells(self, cmf_project, depth_of_layers, r_curve, saturated_depth, cell_indices):
-        """Adds 'depth' to the cells"""
-
-        # Convert retention curve parameters into CMF retention curve
-        r_curve = self.retention_curve(r_curve)
-
-        for c_i in cell_indices:
-
-            # Add layers
-            for i in range(0, len(depth_of_layers)):
-                cmf_project.cells[int(c_i)].add_layer(float(depth_of_layers[i]), r_curve)
+        # Helper functions
+        def install_connections(cell_, evapotranspiration_method):
 
             # Install connections
-            cmf_project.cells[int(c_i)].install_connection(cmf.Richards)
-            cmf_project.cells[int(c_i)].install_connection(cmf.GreenAmptInfiltration)
+            cell_.install_connection(cmf.Richards)
+            cell_.install_connection(cmf.GreenAmptInfiltration)
+
+            if evapotranspiration_method == 'penman_monteith':
+                # Install Penman & Monteith method to calculate EvapoTranspiration_potential
+                cell_.install_connection(cmf.PenmanMonteithET)
+
+            elif evapotranspiration_method == 'shuttleworth_wallace':
+                # Install Shuttleworth-Wallace method to calculate evapotranspiration
+                cell_.install_connection(cmf.ShuttleworthWallace)
+
+            return True
+
+        def set_vegetation_properties(cell_: cmf.Cell, property_dict: dict):
+            cell_.vegetation.Height = float(property_dict['height'])
+            cell_.vegetation.LAI = float(property_dict['lai'])
+            cell_.vegetation.albedo = float(property_dict['albedo'])
+            cell_.vegetation.CanopyClosure = float(property_dict['canopy_closure'])
+            cell_.vegetation.CanopyParExtinction = float(property_dict['canopy_par'])
+            cell_.vegetation.CanopyCapacityPerLAI = float(property_dict['canopy_capacity'])
+            cell_.vegetation.StomatalResistance = float(property_dict['stomatal_res'])
+            cell_.vegetation.RootDepth = float(property_dict['root_depth'])
+            cell_.vegetation.fraction_at_rootdepth = float(property_dict['root_fraction'])
+            cell_.vegetation.LeafWidth = float(property_dict['leaf_width'])
+
+            return True
+
+        def retention_curve(r_curve: dict):
+            """
+            Converts a dict of retention curve parameters into a CMF van Genuchten-Mualem retention curve.
+            :param r_curve: dict
+            :return: CMF retention curve
+            """
+
+            curve = cmf.VanGenuchtenMualem(r_curve['K_sat'], r_curve['phi'], r_curve['alpha'], r_curve['n'],
+                                           r_curve['m'])
+            curve.l = r_curve['l']
+
+            return curve
+
+        # Convert retention curve parameters into CMF retention curve
+        r_curve = retention_curve(cell_properties_dict['retention_curve'])
+
+        for cell_index in cell_properties_dict['face_indices']:
+            cell = cmf_project.cells[int(cell_index)]
+
+            # Add layers
+            for i in range(0, len(cell_properties_dict['layers'])):
+                cell.add_layer(float(cell_properties_dict['layers'][i]), r_curve)
+
+            install_connections(cell, cell_properties_dict['et_method'])
+
+            set_vegetation_properties(cell, cell_properties_dict['surface_properties'])
+
+            if cell_properties_dict['manning']:
+                cell.surfacewater.set_nManning(float(cell_properties_dict['manning']))
+
+            if cell_properties_dict['puddle_depth']:
+                cell.surfacewater.puddledepth = cell_properties_dict['puddle_depth']
 
             # Set initial saturation
-            cmf_project.cells[int(c_i)].saturated_depth = saturated_depth
+            cell.saturated_depth = cell_properties_dict['saturated_depth']
 
         # Connect fluxes
         cmf.connect_cells_with_flux(cmf_project, cmf.Darcy)
@@ -776,15 +780,7 @@ class CMFModel:
         self.mesh_to_cells(project, self.mesh_path)
 
         for key in self.ground_dict.keys():
-            self.add_layers_to_cells(project,
-                                     self.ground_dict[str(key)]['layers'],
-                                     self.ground_dict[str(key)]['retention_curve'],
-                                     self.ground_dict[str(key)]['saturated_depth'],
-                                     self.ground_dict[str(key)]['face_indices'])
-
-            self.add_surface_properties(project,
-                                        self.ground_dict[str(key)]['surface_properties'],
-                                        self.ground_dict[str(key)]['face_indices'])
+            self.configure_cells(project, self.ground_dict[str(key)])
 
         if self.trees_dict:
             for key in self.trees_dict.keys():
