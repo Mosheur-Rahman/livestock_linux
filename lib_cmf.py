@@ -316,11 +316,13 @@ class CMFModel:
 
             self.set_surface_properties(cell, property_dict)
 
-            # Install Penman & Monteith method to calculate EvapoTranspiration_potential
-            #cell.install_connection(cmf.PenmanMonteithET)
+            if property_dict['et_method'] == 'penman_monteith':
+                # Install Penman & Monteith method to calculate EvapoTranspiration_potential
+                cell.install_connection(cmf.PenmanMonteithET)
 
-            # Install Shuttleworth-Wallace method to calculate evapotranspiration
-            cell.install_connection(cmf.ShuttleworthWallace)
+            elif property_dict['et_method'] == 'shuttleworth_wallace':
+                # Install Shuttleworth-Wallace method to calculate evapotranspiration
+                cell.install_connection(cmf.ShuttleworthWallace)
 
         return True
 
