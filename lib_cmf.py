@@ -346,7 +346,7 @@ class CMFModel:
         r_curve = retention_curve(cell_properties_dict['retention_curve'])
 
         for cell_index in cell_properties_dict['face_indices']:
-            cell = cmf_project.cells[int(cell_index)]
+            cell = cmf_project.cells[int(float(cell_index))]
 
             # Add layers
             for i in range(0, len(cell_properties_dict['layers'])):
@@ -354,7 +354,7 @@ class CMFModel:
 
             install_connections(cell, cell_properties_dict['et_method'])
 
-            set_vegetation_properties(cell, cell_properties_dict['surface_properties'])
+            set_vegetation_properties(cell, cell_properties_dict['vegetation_properties'])
 
             if cell_properties_dict['manning']:
                 cell.surfacewater.set_nManning(float(cell_properties_dict['manning']))
