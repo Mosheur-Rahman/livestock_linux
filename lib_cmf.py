@@ -99,7 +99,11 @@ class CMFModel:
                 ground_dict[str(ground)] = {}
 
                 for g in grounds['ground'][ground]:
-                    ground_dict[str(ground)][str(g)] = eval(grounds['ground'][ground][g])
+                    try:
+                        ground_dict[str(ground)][str(g)] = eval(grounds['ground'][ground][g])
+                    except NameError:
+                        ground_dict[str(ground)][str(g)] = grounds['ground'][ground][g]
+
             return ground_dict
 
         def load_mesh(folder, files):
