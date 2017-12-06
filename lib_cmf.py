@@ -35,19 +35,22 @@ class CMFModel:
         self.solved = False
         self.results = {}
 
-    def load_cmf_files(self):
+    def load_cmf_files(self, delete_after_load=True):
 
-        def load_weather(folder, files):
-            weather_path = None
+        def load_weather(folder, delete):
 
-            for f in files:
-                if f.startswith('weather'):
-                    weather_path = folder + '/' + f
+            # look for file
+            if os.path.isfile(folder + '/weather.xml'):
+                weather_path = folder + '/weather.xml'
+            else:
+                raise FileNotFoundError('Cannot find weather.xml in folder: ' + str(folder))
 
+            # Parse file
             weather_tree = ET.tostring(ET.parse(weather_path).getroot())
             weather = xmltodict.parse(weather_tree)
             weather_dict = {}
 
+            # convert to correct format
             for w_key in weather['weather'].keys():
                 lst0 = eval(weather['weather'][w_key])
                 if isinstance(lst0, dict):
@@ -59,42 +62,56 @@ class CMFModel:
 
                 weather_dict[w_key] = lst1
 
+            # delete file
+            if delete:
+                os.remove(weather_path)
+
             return weather_dict
 
-        def load_tree(folder, files):
-            tree_path = None
+        def load_tree(folder,delete):
 
-            for f in files:
-                if f.startswith('trees'):
-                    tree_path = folder + '/' + f
+            # look for file
+            if os.path.isfile(folder + '/trees.xml'):
+                tree_path = folder + '/trees.xml'
+            else:
+                tree_path = None
 
             if not tree_path:
                 return None
 
             else:
+                # Parse file
                 tree_tree = ET.tostring(ET.parse(tree_path).getroot())
                 trees = xmltodict.parse(tree_tree)
                 tree_dict = {}
 
+                # convert to correct format
                 for tree_key in trees['tree'].keys():
                     tree_dict[str(tree_key)] = {}
 
                     for t in trees['tree'][str(tree_key)].keys():
                         tree_dict[str(tree_key)][str(t)] = eval(trees['tree'][str(tree_key)][str(t)])
 
+                # delete file
+                if delete:
+                    os.remove(tree_path)
+
                 return tree_dict
 
-        def load_ground(folder, files):
-            ground_path = None
+        def load_ground(folder, delete):
 
-            for f in files:
-                if f.startswith('ground'):
-                    ground_path = folder + '/' + f
+            # look for file
+            if os.path.isfile(folder + '/ground.xml'):
+                ground_path = folder + '/ground.xml'
+            else:
+                raise FileNotFoundError('Cannot find ground.xml in folder: ' + str(folder))
 
+            # Parse file
             ground_tree = ET.tostring(ET.parse(ground_path).getroot())
             grounds = xmltodict.parse(ground_tree)
             ground_dict = {}
 
+            # convert to correct format
             for ground in grounds['ground'].keys():
                 ground_dict[str(ground)] = {}
 
@@ -104,64 +121,86 @@ class CMFModel:
                     except NameError:
                         ground_dict[str(ground)][str(g)] = grounds['ground'][ground][g]
 
+            # delete file
+            if delete:
+                os.remove(ground_path)
+
             return ground_dict
 
-        def load_mesh(folder, files):
-            mesh_path = None
+        def load_mesh(folder):
 
-            for f in files:
-                if f.endswith('.obj'):
-                    mesh_path = folder + '/' + f
+            # look for file
+            if os.path.isfile(folder + '/mesh.obj'):
+                mesh_path = folder + '/mesh.obj'
+            else:
+                raise FileNotFoundError('Cannot find mesh.obj in folder: ' + str(folder))
 
             return mesh_path
 
-        def load_outputs(folder, files):
-            output_path = None
+        def load_outputs(folder, delete):
 
-            for f in files:
-                if f.startswith('outputs'):
-                    output_path = folder + '/' + f
+            # look for file
+            if os.path.isfile(folder + '/outputs.xml'):
+                output_path = folder + '/outputs.xml'
+            else:
+                raise FileNotFoundError('Cannot find outputs.xml in folder: ' + str(folder))
 
+            # Parse file
             output_tree = ET.tostring(ET.parse(output_path).getroot())
             outputs = xmltodict.parse(output_tree)
             output_dict = {}
 
+            # convert to correct format
             for out in outputs['output'].keys():
                 output_dict[str(out)] = eval(outputs['output'][out])
 
+            # delete file
+            if delete:
+                os.remove(output_path)
+
             return output_dict
 
-        def load_solver_info(folder, files):
-            solver_path = None
+        def load_solver_info(folder, delete):
 
-            for f in files:
-                if f.startswith('solver'):
-                    solver_path = folder + '/' + f
+            # look for file
+            if os.path.isfile(folder + '/solver.xml'):
+                solver_path = folder + '/solver.xml'
+            else:
+                raise FileNotFoundError('Cannot find solver.xml in folder: ' + str(folder))
 
+            # Parse file
             solver_tree = ET.tostring(ET.parse(solver_path).getroot())
             solver = xmltodict.parse(solver_tree)
             solver_dict = {}
 
+            # convert to correct format
             for setting in solver['solver']:
                 solver_dict[setting] = eval(solver['solver'][setting])
 
+            # delete file
+            if delete:
+                os.remove(solver_path)
+
             return solver_dict
 
-        def load_boundary(folder, files):
-            boundary_path = None
+        def load_boundary(folder, delete):
 
-            for f in files:
-                if f.startswith('boundary'):
-                    boundary_path = folder + '/' + f
+            # look for file
+            if os.path.isfile(folder + '/boundary_condition.xml'):
+                boundary_path = folder + '/boundary_condition.xml'
+            else:
+                boundary_path = None
 
             if not boundary_path:
                 return None
 
             else:
+                # Parse file
                 boundary_tree = ET.tostring(ET.parse(boundary_path).getroot())
                 boundaries = xmltodict.parse(boundary_tree)
                 boundary_dict = {}
 
+                # convert to correct format
                 for bc_key in boundaries['boundary_conditions'].keys():
                     boundary_dict[str(bc_key)] = {}
 
@@ -173,21 +212,24 @@ class CMFModel:
                         else:
                             boundary_dict[bc_key][bc] = boundaries['boundary_conditions'][bc_key][bc]
 
+                # delete file
+                if delete:
+                    os.remove(boundary_path)
+
                 return boundary_dict
 
-        cmf_files = os.listdir(self.folder)
-
         # Load files and assign data to variables
-        self.weather_dict = load_weather(self.folder, cmf_files)
-        self.trees_dict = load_tree(self.folder, cmf_files)
-        self.ground_dict = load_ground(self.folder, cmf_files)
-        self.mesh_path = load_mesh(self.folder, cmf_files)
-        self.outputs = load_outputs(self.folder, cmf_files)
-        self.solver_settings = load_solver_info(self.folder, cmf_files)
-        self.boundary_dict = load_boundary(self.folder, cmf_files)
+        self.weather_dict = load_weather(self.folder, delete_after_load)
+        self.trees_dict = load_tree(self.folder, delete_after_load)
+        self.ground_dict = load_ground(self.folder, delete_after_load)
+        self.mesh_path = load_mesh(self.folder)
+        self.outputs = load_outputs(self.folder, delete_after_load)
+        self.solver_settings = load_solver_info(self.folder, delete_after_load)
+        self.boundary_dict = load_boundary(self.folder, delete_after_load)
+
         return True
 
-    def mesh_to_cells(self, cmf_project, mesh_path):
+    def mesh_to_cells(self, cmf_project, mesh_path, delete_after_load=True):
         """
         Takes a mesh and converts it into CMF cells
         :param mesh_path: Path to mesh file
@@ -277,6 +319,9 @@ class CMFModel:
                     cmf_project[face].topology.AddNeighbor(cmf_project[adj], width)
                 else:
                     pass
+
+        if delete_after_load:
+            os.remove(mesh_path)
 
         return True
 
