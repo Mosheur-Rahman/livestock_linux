@@ -340,7 +340,7 @@ class CMFModel:
 
         return True
 
-    def configure_cells(self, cmf_project: cmf.project, cell_properties_dict: dict):
+    def configure_cells(self, cmf_project, cell_properties_dict: dict):
         """Configure the cells"""
 
         # Helper functions
@@ -459,35 +459,35 @@ class CMFModel:
         """Creates weather for the project"""
 
         # Helper functions
-        def create_time_series(time_step=1.0):
+        def create_time_series(analysis_length, time_step=1.0):
 
             # Start date is the 1st of January 2017 at 00:00
             start = cmf.Time(1, 1, 2017, 0, 0)
             step = cmf.h * time_step
 
             # Create time series
-            return cmf.timeseries(begin=start, step=step)
+            return cmf.timeseries(begin=start, step=step, count=analysis_length+1)
 
-        def weather_to_time_series(weather, time_series):
+        def weather_to_time_series(weather):
 
             # Create time series
-            t_series = time_series
-            w_series = time_series
-            rh_series = time_series
-            sun_series = time_series
-            rad_series = time_series
-            rain_series = time_series
-            ground_temp_series = time_series
+            t_series = create_time_series(self.solver_settings['analysis_length'])
+            w_series = create_time_series(self.solver_settings['analysis_length'])
+            rh_series = create_time_series(self.solver_settings['analysis_length'])
+            sun_series = create_time_series(self.solver_settings['analysis_length'])
+            rad_series = create_time_series(self.solver_settings['analysis_length'])
+            rain_series = create_time_series(self.solver_settings['analysis_length'])
+            ground_temp_series = create_time_series(self.solver_settings['analysis_length'])
 
             # add data
             for i in range(len(weather['temp'])):
-                t_series.add(weather['temp'][i])
-                w_series.add(weather['wind'][i])
-                rh_series.add(weather['rel_hum'][i])
-                sun_series.add(weather['sun'][i])
-                rad_series.add(weather['rad'][i])
-                rain_series.add(weather['rain'][i])
-                ground_temp_series.add(weather['ground_temp'][i])
+                t_series[i] = (weather['temp'][i])
+                w_series[i] = (weather['wind'][i])
+                rh_series[i] = (weather['rel_hum'][i])
+                sun_series[i] = (weather['sun'][i])
+                rad_series[i] = (weather['rad'][i])
+                rain_series[i] = (weather['rain'][i])
+                ground_temp_series[i] = (weather['ground_temp'][i])
 
             return {'temp': t_series, 'wind': w_series, 'rel_hum': rh_series, 'sun': sun_series, 'rad': rad_series,
                     'rain': rain_series, 'ground_temp': ground_temp_series}
@@ -512,13 +512,11 @@ class CMFModel:
                     location_dict[weather_type] = project_weather_dict[weather_type]
 
             # Convert to time series
-            time_for_weather = create_time_series()
-            cell_weather_series = weather_to_time_series(cell_weather_dict_, time_for_weather)
+            cell_weather_series = weather_to_time_series(cell_weather_dict_)
 
             return cell_weather_series, location_dict
 
         def create_weather_station(cmf_project_, cell_id, weather, location):
-
             # Add cell rainfall station to the project
             rain_station = cmf_project_.rainfall_stations.add(Name='cell_' + str(cell_id) + ' rain',
                                                               Data=weather['rain'],
@@ -578,11 +576,8 @@ class CMFModel:
                 inlet.set_flux(cmf.timeseries.from_array(begin=datetime(2017, 1, 1),
                                                          step=timedelta(hours=1),
                                                          data=inlet_flux))
-                print('inlet flux:', str(inlet.get_flux()))
-                print('inlet:', str(inlet))
             else:
                 inlet.flux = boundary_condition_['flux'][0]
-                print('inlet flux:', str(inlet.flux))
 
         def set_outlet(boundary_condition_, index_, cmf_project_):
             x, y, z = boundary_condition_['location'].split(',')
@@ -782,7 +777,7 @@ class CMFModel:
         self.solved = True
         return True
 
-    def save_results(self, file_path):
+    def save_results(self):
         """Saves the computed results to a xml file"""
 
         if not self.solved:
@@ -808,11 +803,11 @@ class CMFModel:
                         data.text = str(self.results[cell][result_key])
 
             result_tree = ET.ElementTree(result_root)
-            result_tree.write(file_path, xml_declaration=True)
+            result_tree.write(self.folder + '/results.xml', xml_declaration=True)
 
             return True
 
-    def run_model(self, result_path):
+    def run_model(self):
         """Runs the model with everything"""
 
         # Initialize project
@@ -842,4 +837,6 @@ class CMFModel:
         self.solve(project, self.solver_settings['tolerance'])
 
         # Save the results
-        self.save_results(result_path)
+        self.save_results()
+
+        return project
