@@ -68,7 +68,7 @@ class CMFModel:
 
             return weather_dict
 
-        def load_tree(folder,delete):
+        def load_tree(folder, delete):
 
             # look for file
             if os.path.isfile(folder + '/trees.xml'):
@@ -329,7 +329,7 @@ class CMFModel:
         """Adds a tree to the model"""
 
         cell = cmf_project.cells[int(cell_index)]
-        self.set_surface_properties(cell, property_dict)
+        self.set_vegetation_properties(cell, property_dict)
         name = 'canopy_'+str(cell_index)
         cell.add_storage(name, 'C')
 
@@ -340,7 +340,21 @@ class CMFModel:
 
         return True
 
-    def configure_cells(self, cmf_project, cell_properties_dict: dict):
+    def set_vegetation_properties(self, cell_: cmf.Cell, property_dict: dict):
+        cell_.vegetation.Height = float(property_dict['height'])
+        cell_.vegetation.LAI = float(property_dict['lai'])
+        cell_.vegetation.albedo = float(property_dict['albedo'])
+        cell_.vegetation.CanopyClosure = float(property_dict['canopy_closure'])
+        cell_.vegetation.CanopyParExtinction = float(property_dict['canopy_par'])
+        cell_.vegetation.CanopyCapacityPerLAI = float(property_dict['canopy_capacity'])
+        cell_.vegetation.StomatalResistance = float(property_dict['stomatal_res'])
+        cell_.vegetation.RootDepth = float(property_dict['root_depth'])
+        cell_.vegetation.fraction_at_rootdepth = float(property_dict['root_fraction'])
+        cell_.vegetation.LeafWidth = float(property_dict['leaf_width'])
+
+        return True
+
+    def configure_cells(self, cmf_project: cmf.project, cell_properties_dict: dict):
         """Configure the cells"""
 
         # Helper functions
@@ -351,7 +365,7 @@ class CMFModel:
             cell_.install_connection(cmf.GreenAmptInfiltration)
 
             if evapotranspiration_method == 'penman_monteith':
-                # Install Penman & Monteith method to calculate EvapoTranspiration_potential
+                # Install Penman & Monteith method to calculate evapotranspiration_potential
                 cell_.install_connection(cmf.PenmanMonteithET)
 
             elif evapotranspiration_method == 'shuttleworth_wallace':
@@ -360,30 +374,16 @@ class CMFModel:
 
             return True
 
-        def set_vegetation_properties(cell_: cmf.Cell, property_dict: dict):
-            cell_.vegetation.Height = float(property_dict['height'])
-            cell_.vegetation.LAI = float(property_dict['lai'])
-            cell_.vegetation.albedo = float(property_dict['albedo'])
-            cell_.vegetation.CanopyClosure = float(property_dict['canopy_closure'])
-            cell_.vegetation.CanopyParExtinction = float(property_dict['canopy_par'])
-            cell_.vegetation.CanopyCapacityPerLAI = float(property_dict['canopy_capacity'])
-            cell_.vegetation.StomatalResistance = float(property_dict['stomatal_res'])
-            cell_.vegetation.RootDepth = float(property_dict['root_depth'])
-            cell_.vegetation.fraction_at_rootdepth = float(property_dict['root_fraction'])
-            cell_.vegetation.LeafWidth = float(property_dict['leaf_width'])
-
-            return True
-
-        def retention_curve(r_curve: dict):
+        def retention_curve(r_curve_: dict):
             """
             Converts a dict of retention curve parameters into a CMF van Genuchten-Mualem retention curve.
-            :param r_curve: dict
+            :param r_curve_: dict
             :return: CMF retention curve
             """
 
-            curve = cmf.VanGenuchtenMualem(r_curve['K_sat'], r_curve['phi'], r_curve['alpha'], r_curve['n'],
-                                           r_curve['m'])
-            curve.l = r_curve['l']
+            curve = cmf.VanGenuchtenMualem(r_curve_['K_sat'], r_curve_['phi'], r_curve_['alpha'], r_curve_['n'],
+                                           r_curve_['m'])
+            curve.l = r_curve_['l']
 
             return curve
 
@@ -399,7 +399,7 @@ class CMFModel:
 
             install_connections(cell, cell_properties_dict['et_method'])
 
-            set_vegetation_properties(cell, cell_properties_dict['vegetation_properties'])
+            self.set_vegetation_properties(cell, cell_properties_dict['vegetation_properties'])
 
             if cell_properties_dict['manning']:
                 cell.surfacewater.set_nManning(float(cell_properties_dict['manning']))
@@ -466,7 +466,7 @@ class CMFModel:
             step = cmf.h * time_step
 
             # Create time series
-            return cmf.timeseries(begin=start, step=step, count=analysis_length+1)
+            return cmf.timeseries(begin=start, step=step, count=analysis_length)
 
         def weather_to_time_series(weather):
 
