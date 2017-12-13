@@ -216,6 +216,7 @@ class CMFModel:
                 if delete:
                     os.remove(boundary_path)
 
+                #print('load', boundary_dict)
                 return boundary_dict
 
         # Load files and assign data to variables
@@ -567,6 +568,7 @@ class CMFModel:
 
             # Create inlet
             inlet = cmf.NeumannBoundary.create(cell_layer)
+            #print('set_inlet', inlet)
 
             # if flux is a list then convert to time series
             if len(boundary_condition_['flux']) > 1:
@@ -596,6 +598,7 @@ class CMFModel:
                 cmf.Darcy(layer, outlet, FlowWidth=float(boundary_condition_['flow_width']))
 
         def set_boundary_condition(boundary_condition_, bc_index, cmf_project_):
+            print('set_boundary_condition', boundary_condition_)
             if boundary_condition_['type'] == 'inlet':
                 set_inlet(boundary_condition_, cmf_project_)
             elif boundary_condition_['type'] == 'outlet':
@@ -606,6 +609,9 @@ class CMFModel:
 
         # Loop through the boundary conditions and assign them
         for index, boundary_condition in enumerate(self.boundary_dict.keys()):
+            #print('\nloop')
+            #print(index)
+            #print(boundary_condition)
             set_boundary_condition(self.boundary_dict[boundary_condition], index, cmf_project)
 
     def config_outputs(self, cmf_project):
