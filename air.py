@@ -117,6 +117,8 @@ class NewTemperatureAndRelativeHumidity:
         return row_index
 
     def run_parallel(self):
+        self.get_files()
+
         rows = np.linspace(0,
                            np.size(self.heat_flux, 1),
                            np.size(self.heat_flux, 1) + 1
