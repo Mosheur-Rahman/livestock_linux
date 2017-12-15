@@ -6,9 +6,10 @@ __version__ = "0.0.1"
 # Imports
 
 # Module imports
-#import pandas as pd
+import shapely
+from shapely.geometry import Polygon
+import shapefile
 import numpy as np
-#import pyshp as ps
 from numpy.linalg import norm
 import pymesh
 
@@ -211,8 +212,8 @@ def line_intersection(p1, p2, p3, p4):
     return p1 + t * v1
 
 
-def obj_to_panda(obj_file):
-    """Convert a obj file into a panda data frame"""
+def obj_to_lists(obj_file: str)-> tuple:
+    """Convert a obj file into lists"""
 
     # Initialization
     vertices = []
@@ -224,19 +225,20 @@ def obj_to_panda(obj_file):
 
     # Find data
     for line in lines:
-        if line.startswith('v'):
+        if line.startswith('v '):
             data = line.split(' ')
-            vertices.append([data[1], data[2], data[3]])
+            vertices.append((float(data[1]), float(data[2]), float(data[3].strip())))
 
         elif line.startswith('vn'):
             data = line.split(' ')
-            normals.append([data[1], data[2], data[3]])
+            normals.append((float(data[1]), float(data[2]), float(data[3].strip())))
 
         elif line.startswith('f'):
             data = line.split(' ')
             d = []
-            for elem in data:
-                d.append(elem.split('/'))
+            for elem in data[1:]:
+                d.append((int(e) for e in elem.strip().split('/')))
+
             faces.append(d)
 
         else:
@@ -245,8 +247,97 @@ def obj_to_panda(obj_file):
     return vertices, normals, faces
 
 
+def obj_to_polygons(obj_file: str) -> list:
+    """Convert a obj file into a list of shapely polygons"""
+
+    vertices, normals, faces = obj_to_lists(obj_file)
+
+    polygons = []
+    for face in faces:
+        face_vertices = []
+        for vertex, _, __ in face:
+            face_vertices.append(vertices[vertex-1])
+
+        polygons.append(Polygon(face_vertices))
+
+    return polygons
+
+
+def shapely_to_pyshp(shapely_geometry):
+    """This function converts a shapely geometry into a geojson and then into a pyshp object.
+    Copied from Karim Bahgat's answer at:
+     https://gis.stackexchange.com/questions/52705/how-to-write-shapely-geometries-to-shapefiles"""
+
+    # first convert shapely to geojson
+    try:
+        shapelytogeojson = shapely.geometry.mapping
+    except:
+        import shapely.geometry
+        shapelytogeojson = shapely.geometry.mapping
+    geoj = shapelytogeojson(shapely_geometry)
+
+    # create empty pyshp shape
+    record = shapefile._Shape()
+
+    # set shapetype
+    if geoj["type"] == "Null":
+        pyshp_type = 0
+    elif geoj["type"] == "Point":
+        pyshp_type = 1
+    elif geoj["type"] == "LineString":
+        pyshp_type = 3
+    elif geoj["type"] == "Polygon":
+        pyshp_type = 5
+    elif geoj["type"] == "MultiPoint":
+        pyshp_type = 8
+    elif geoj["type"] == "MultiLineString":
+        pyshp_type = 3
+    elif geoj["type"] == "MultiPolygon":
+        pyshp_type = 5
+
+    record.shapeType = pyshp_type
+
+    # set points and parts
+    if geoj["type"] == "Point":
+        record.points = geoj["coordinates"]
+        record.parts = [0]
+
+    elif geoj["type"] in ("MultiPoint", "Linestring"):
+        record.points = geoj["coordinates"]
+        record.parts = [0]
+
+    elif geoj["type"] in "Polygon":
+        record.points = geoj["coordinates"][0]
+        record.parts = [0]
+
+    elif geoj["type"] in ("MultiPolygon", "MultiLineString"):
+        index = 0
+        points = []
+        parts = []
+        for each_multi in geoj["coordinates"]:
+            points.extend(each_multi[0])
+            parts.append(index)
+            index += len(each_multi[0])
+
+        record.points = points
+        record.parts = parts
+
+    return record
+
+
 def obj_to_shp(obj_file, shp_file):
     """Convert a obj file into a shape file"""
-    shapefile.Writer()
+
+    polygons = obj_to_polygons(obj_file)
+
+    shape_writer = shapefile.Writer()
+    shape_writer.field('mesh')
+
+    for index, polygon in enumerate(polygons):
+        converted_shape = shapely_to_pyshp(polygon)
+        shape_writer._shapes.append(converted_shape)
+        shape_writer.record('face_' + str(index))
+
+    shape_writer.save(shp_file)
 
     return True
