@@ -162,10 +162,10 @@ class NewTemperatureAndRelativeHumidity:
 
     def run(self):
 
-        if __name__ == "__main__":
-            rows = self.run_parallel()
-            self.reconstruct_results(rows)
-            return True
+        #if __name__ == "__main__":
+        rows = self.run_parallel()
+        self.reconstruct_results(rows)
+        return True
 
 
 def new_mean_relative_humidity(area, height_external, temperature_internal, vapour_pressure_external,
